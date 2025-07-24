@@ -2,8 +2,9 @@ import { useState } from "react";
 import { DenominationInput } from "./DenominationInput";
 import { ShiftTabs } from "./ShiftTabs";
 import { CashTotal } from "./CashTotal";
+import { PDFExport } from "./PDFExport";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Calculator } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10, 5, 1];
@@ -102,15 +103,23 @@ export const CashCounter = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <Button
-            onClick={clearCurrentShift}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Clear {activeShift} Shift
-          </Button>
+        <div className="flex flex-col gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button
+              onClick={clearCurrentShift}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Clear {activeShift} Shift
+            </Button>
+          </div>
+          
+          {/* PDF Export Actions */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-3 text-foreground">Export & Print</h3>
+            <PDFExport shifts={shifts} activeShift={activeShift} />
+          </div>
         </div>
 
         {/* All Shifts Total */}
