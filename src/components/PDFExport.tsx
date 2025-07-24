@@ -38,90 +38,179 @@ export const PDFExport = ({ shifts, activeShift }: PDFExportProps) => {
   };
 
   const generatePDFReport = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF('landscape'); // Use landscape for better table layout
     const pageWidth = doc.internal.pageSize.width;
-    let yPosition = 20;
-
+    const pageHeight = doc.internal.pageSize.height;
+    
     // Header
-    doc.setFontSize(20);
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Cash Count Report", pageWidth / 2, yPosition, { align: "center" });
+    doc.text("CASH BREAKDOWN", pageWidth / 2, 20, { align: "center" });
     
-    yPosition += 10;
     doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: "center" });
-    
-    yPosition += 20;
+    doc.text(`DATE: ${new Date().toLocaleDateString('en-GB')}`, pageWidth / 2, 30, { align: "center" });
 
-    // Process each shift
-    Object.entries(shifts).forEach(([shiftName, shiftData]) => {
-      if (Object.keys(shiftData).length === 0) return;
+    // Table dimensions
+    const tableWidth = 85;
+    const tableHeight = 90;
+    const startX1 = 20; // Left tables
+    const startX2 = pageWidth / 2 + 10; // Right tables
+    const startY1 = 45; // Top tables
+    const startY2 = startY1 + tableHeight + 15; // Bottom tables
 
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${shiftName} Shift`, 20, yPosition);
-      yPosition += 10;
-
+    // Helper function to draw a shift table
+    const drawShiftTable = (x: number, y: number, shiftName: string, shiftData: ShiftData, personName?: string) => {
+      const cellHeight = 8;
+      const total = calculateShiftTotal(shiftData);
+      
+      // Header
       doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-
-      // Table header
-      doc.text("Denomination", 20, yPosition);
-      doc.text("Quantity", 80, yPosition);
-      doc.text("Total", 130, yPosition);
-      yPosition += 5;
-
-      // Draw line
-      doc.line(20, yPosition, pageWidth - 20, yPosition);
-      yPosition += 5;
-
-      let shiftTotal = 0;
-
-      // Denomination details
-      DENOMINATIONS.forEach((denomination) => {
-        const quantity = shiftData[denomination] || 0;
-        if (quantity > 0) {
-          const total = denomination * quantity;
-          shiftTotal += total;
-
-          doc.text(`₱${denomination}`, 20, yPosition);
-          doc.text(quantity.toString(), 80, yPosition);
-          doc.text(formatCurrency(total), 130, yPosition);
-          yPosition += 5;
-        }
-      });
-
-      // Shift total
-      yPosition += 5;
       doc.setFont("helvetica", "bold");
-      doc.text(`${shiftName} Total: ${formatCurrency(shiftTotal)}`, 20, yPosition);
-      yPosition += 15;
-      doc.setFont("helvetica", "normal");
+      const headerText = personName ? `${shiftName} SHIFT(${personName})` : `${shiftName} SHIFT`;
+      doc.text(headerText, x + tableWidth/2, y - 3, { align: "center" });
+      
+      // Table border
+      doc.rect(x, y, tableWidth, tableHeight);
+      
+      let currentY = y + cellHeight;
+      
+      // Draw each denomination row
+      DENOMINATIONS.forEach((denomination, index) => {
+        const quantity = shiftData[denomination] || 0;
+        const rowTotal = denomination * quantity;
+        
+        // Row lines
+        if (index < DENOMINATIONS.length - 1) {
+          doc.line(x, currentY, x + tableWidth, currentY);
+        }
+        
+        // Vertical lines
+        doc.line(x + 20, y, x + 20, y + tableHeight - cellHeight); // After denomination
+        doc.line(x + 30, y, x + 30, y + tableHeight - cellHeight); // After X
+        doc.line(x + 45, y, x + 45, y + tableHeight - cellHeight); // After quantity
+        doc.line(x + 55, y, x + 55, y + tableHeight - cellHeight); // After =
+        
+        // Cell content
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        
+        // Denomination
+        doc.text(denomination.toString(), x + 10, currentY - 2, { align: "center" });
+        // X
+        doc.text("X", x + 25, currentY - 2, { align: "center" });
+        // Quantity
+        if (quantity > 0) {
+          doc.text(quantity.toString(), x + 37.5, currentY - 2, { align: "center" });
+        }
+        // =
+        doc.text("=", x + 50, currentY - 2, { align: "center" });
+        // Total
+        if (rowTotal > 0) {
+          doc.text(rowTotal.toString(), x + 70, currentY - 2, { align: "center" });
+        }
+        
+        currentY += cellHeight;
+      });
+      
+      // Total row
+      doc.line(x, y + tableHeight - cellHeight, x + tableWidth, y + tableHeight - cellHeight);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("TOTAL", x + 10, y + tableHeight - 2, { align: "left" });
+      doc.text(`₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, x + 70, y + tableHeight - 2, { align: "center" });
+    };
 
-      // Check if we need a new page
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
+    // Get shift names and person names (you can customize these)
+    const shiftPersons = {
+      "1st": "STAFF1",
+      "2nd": "STAFF2", 
+      "3rd": "STAFF3"
+    };
+
+    // Draw the four tables in 2x2 layout
+    const shiftNames = ["1st", "2nd", "3rd"];
+    
+    // Top row
+    if (shifts["1st"] && Object.keys(shifts["1st"]).length > 0) {
+      drawShiftTable(startX1, startY1, "1ST", shifts["1st"], shiftPersons["1st"]);
+    }
+    if (shifts["2nd"] && Object.keys(shifts["2nd"]).length > 0) {
+      drawShiftTable(startX2, startY1, "2ND", shifts["2nd"], shiftPersons["2nd"]);
+    }
+
+    // Bottom left - 3rd shift
+    if (shifts["3rd"] && Object.keys(shifts["3rd"]).length > 0) {
+      drawShiftTable(startX1, startY2, "3RD", shifts["3rd"], shiftPersons["3rd"]);
+    }
+
+    // Bottom right - Total Cash Domination
+    const totalCashData: ShiftData = {};
+    DENOMINATIONS.forEach(denomination => {
+      let totalQty = 0;
+      Object.values(shifts).forEach(shift => {
+        totalQty += shift[denomination] || 0;
+      });
+      if (totalQty > 0) {
+        totalCashData[denomination] = totalQty;
       }
     });
 
-    // Grand total
-    const grandTotal = Object.values(shifts).reduce((total, shift) => {
-      return total + calculateShiftTotal(shift);
-    }, 0);
-
-    yPosition += 10;
-    doc.setFontSize(16);
+    // Draw total table
+    const totalX = startX2;
+    const totalY = startY2;
+    const totalAmount = calculateShiftTotal(totalCashData);
+    
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`GRAND TOTAL: ${formatCurrency(grandTotal)}`, pageWidth / 2, yPosition, { align: "center" });
+    doc.text("TOTAL CASH DOMINATION", totalX + tableWidth/2, totalY - 3, { align: "center" });
+    
+    // Table border
+    doc.rect(totalX, totalY, tableWidth, tableHeight);
+    
+    let currentY = totalY + 8;
+    
+    DENOMINATIONS.forEach((denomination, index) => {
+      const quantity = totalCashData[denomination] || 0;
+      const rowTotal = denomination * quantity;
+      
+      if (index < DENOMINATIONS.length - 1) {
+        doc.line(totalX, currentY, totalX + tableWidth, currentY);
+      }
+      
+      // Vertical lines
+      doc.line(totalX + 20, totalY, totalX + 20, totalY + tableHeight - 8);
+      doc.line(totalX + 30, totalY, totalX + 30, totalY + tableHeight - 8);
+      doc.line(totalX + 45, totalY, totalX + 45, totalY + tableHeight - 8);
+      doc.line(totalX + 55, totalY, totalX + 55, totalY + tableHeight - 8);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      
+      doc.text(denomination.toString(), totalX + 10, currentY - 2, { align: "center" });
+      doc.text("X", totalX + 25, currentY - 2, { align: "center" });
+      if (quantity > 0) {
+        doc.text(quantity.toString(), totalX + 37.5, currentY - 2, { align: "center" });
+      }
+      doc.text("=", totalX + 50, currentY - 2, { align: "center" });
+      if (rowTotal > 0) {
+        doc.text(rowTotal.toString(), totalX + 70, currentY - 2, { align: "center" });
+      }
+      
+      currentY += 8;
+    });
+    
+    // Total row for cash domination
+    doc.line(totalX, totalY + tableHeight - 8, totalX + tableWidth, totalY + tableHeight - 8);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL", totalX + 10, totalY + tableHeight - 2, { align: "left" });
+    doc.text(`₱${totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, totalX + 70, totalY + tableHeight - 2, { align: "center" });
 
     // Save the PDF
-    doc.save(`cash-count-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`cash-breakdown-${new Date().toISOString().split('T')[0]}.pdf`);
     
     toast({
       title: "PDF Generated",
-      description: "Cash count report has been downloaded.",
+      description: "Professional cash breakdown report downloaded.",
     });
   };
 
